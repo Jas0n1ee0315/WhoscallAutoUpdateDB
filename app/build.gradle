@@ -1,0 +1,42 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.wixtar.qa.whoscallhook'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.wixtar.qa.whoscallhook"
+        // LSPosed / 新版 libxposed API 102 最低建議支援 Android 8.1 (API 27) 以上裝置
+        minSdk 27
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    buildTypes {
+        release {
+            // QA 內部測試用模組，不做混淆，方便日後除錯與追蹤 Hook 是否命中
+            minifyEnabled false
+        }
+    }
+
+    // LSPosed 新版 API 的模組宣告檔（java_init.list / scope.list / module.prop）
+    // 依規範需放在 src/main/resources/META-INF/xposed/ 下，Gradle 會自動打包進 APK
+    sourceSets {
+        main {
+            resources.srcDirs += ['src/main/resources']
+        }
+    }
+}
+
+dependencies {
+    // 僅在編譯期需要，執行期由 LSPosed 框架本身注入實作，因此使用 compileOnly
+    compileOnly 'io.github.libxposed:api:102.0.0'
+}

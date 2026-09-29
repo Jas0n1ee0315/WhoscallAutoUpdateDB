@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Whoscall 訂閱狀態模擬 (QA)</string>
+    <string name="app_description">QA 測試專用 LSPosed 模組：強制讓 Whoscall App 判斷使用者為「已訂閱 (Premium)」狀態，僅供測試環境使用，不會產生真實訂單。</string>
+</resources>

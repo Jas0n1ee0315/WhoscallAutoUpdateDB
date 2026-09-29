@@ -1,0 +1,6 @@
+// 專案根層級 Gradle 設定
+// 這是一支 LSPosed 模組專案，用途：QA 測試時強制讓 Whoscall App 認定使用者「已訂閱 (Premium)」，
+// 以便測試訂閱限定功能的 UI／流程，不需要真的完成 Google Play 購買。
+plugins {
+    id 'com.android.application' version '8.5.2' apply false
+}
