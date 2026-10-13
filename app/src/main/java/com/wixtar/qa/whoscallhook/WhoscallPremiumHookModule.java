@@ -6,7 +6,6 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import io.github.libxposed.api.XposedModule;
@@ -16,7 +15,7 @@ import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam;
 /**
  * Whoscall QA 訂閱狀態模擬與功能開通模組。
  *
- * 支援版本：Whoscall 8.38 / 8.41+
+ * 支援版本：Whoscall 8.41+ 與 8.38
  *
  * 背景與原理：
  * 1. isPremium 強制訂閱 Hook：
@@ -36,33 +35,9 @@ public final class WhoscallPremiumHookModule extends XposedModule {
     /** 要 Hook 的目標 App 套件名稱（取自 AndroidManifest.xml 的 package 屬性） */
     private static final String TARGET_PACKAGE = "gogolook.callgogolook2";
 
-    // ↓↓↓ 以下為混淆類別候選名稱列表（依序比對 8.41+ 與 8.38，相容多個 APK 版本） ↓↓↓
-
-    /** isPremium Flow 內部 FlowCollector，emit() 內計算最終布林值 (8.41: jg4$a, 8.38: mh4$a) */
-    private static final String[] CLASS_FLOW_COLLECTOR_CANDIDATES = {"jg4$a", "mh4$a"};
-
-    /** Kotlin coroutine 的 Continuation 介面 (8.41: x43, 8.38: z63) */
-    private static final String[] CLASS_CONTINUATION_CANDIDATES = {"x43", "z63"};
-
-    /** UserEntitlement 資料類別，建構子為 (status, expireAt, isOwner, features) (8.41: dtf, 8.38: ztf) */
-    private static final String[] CLASS_USER_ENTITLEMENT_CANDIDATES = {"dtf", "ztf"};
-
-    /** EntitlementStatus enum (8.41: fbb, 8.38: meb) */
-    private static final String[] CLASS_ENTITLEMENT_STATUS_CANDIDATES = {"fbb", "meb"};
-
-    /** EntitlementStatus.PREMIUM 常數欄位 */
+    // 常數設定（混淆列舉欄位名稱）
     private static final String FIELD_STATUS_PREMIUM = "c";
-
-    /** FeatureAvailabilityChecker：isFeatureAvailable 的同步/快取版判斷類別 (8.41: qpd, 8.38: hrd) */
-    private static final String[] CLASS_FEATURE_AVAILABILITY_CHECKER_CANDIDATES = {"qpd", "hrd"};
-
-    /** FeatureType enum (8.41: q16, 8.38: v26) */
-    private static final String[] CLASS_FEATURE_TYPE_CANDIDATES = {"q16", "v26"};
-
-    /** FeatureType.OFFLINE_DB（自動更新號碼資料庫功能）常數欄位 */
     private static final String FIELD_FEATURE_TYPE_OFFLINE_DB = "b";
-
-    // ↑↑↑ 混淆類別名稱設定區結束 ↑↑↑
 
     @Override
     public void onModuleLoaded(ModuleLoadedParam param) {
@@ -107,37 +82,56 @@ public final class WhoscallPremiumHookModule extends XposedModule {
         }
     }
 
-    private Class<?> findFirstClass(String[] candidateNames, ClassLoader classLoader) throws ClassNotFoundException {
-        for (String name : candidateNames) {
-            try {
-                return findClass(name, classLoader);
-            } catch (ClassNotFoundException ignored) {
-            }
-        }
-        throw new ClassNotFoundException("無法找到混淆類別，候選清單: " + Arrays.toString(candidateNames));
-    }
-
     /**
      * 核心 Hook 邏輯 1：
      * 攔截 FlowCollector.emit(Object list, Continuation)，在原始清單交給判斷邏輯之前，
      * 動態塞入一筆 EntitlementStatus.PREMIUM 的假資料，讓 isPremium 永遠算出 true。
      */
     private void hookIsPremiumFlow(ClassLoader classLoader) throws Throwable {
-        Class<?> flowCollectorClass = findFirstClass(CLASS_FLOW_COLLECTOR_CANDIDATES, classLoader);
-        Class<?> continuationClass = findFirstClass(CLASS_CONTINUATION_CANDIDATES, classLoader);
-        Class<?> entitlementClass = findFirstClass(CLASS_USER_ENTITLEMENT_CANDIDATES, classLoader);
-        Class<?> statusEnumClass = findFirstClass(CLASS_ENTITLEMENT_STATUS_CANDIDATES, classLoader);
+        Method emitMethod = null;
+        Class<?> statusEnumClass = null;
+        Constructor<?> entitlementConstructor = null;
 
-        Method emitMethod = flowCollectorClass.getDeclaredMethod("emit", Object.class, continuationClass);
+        // 嘗試 8.41+ 混淆組合
+        try {
+            Class<?> flowCollectorClass = findClass("jg4$a", classLoader);
+            Class<?> continuationClass = findClass("x43", classLoader);
+            statusEnumClass = findClass("fbb", classLoader);
+            Class<?> entitlementClass = findClass("dtf", classLoader);
+
+            emitMethod = flowCollectorClass.getDeclaredMethod("emit", Object.class, continuationClass);
+            entitlementConstructor = entitlementClass.getDeclaredConstructor(
+                    statusEnumClass, String.class, boolean.class, List.class);
+            log(Log.INFO, TAG, "檢測到 Whoscall 8.41+ 版本混淆特徵 (jg4$a / x43 / dtf / fbb)");
+        } catch (Throwable ignored) {
+        }
+
+        // 若 8.41+ 失敗，嘗試 8.38 混淆組合
+        if (emitMethod == null) {
+            Class<?> flowCollectorClass = findClass("mh4$a", classLoader);
+            Class<?> continuationClass = findClass("z63", classLoader);
+            statusEnumClass = findClass("meb", classLoader);
+            Class<?> entitlementClass = findClass("ztf", classLoader);
+
+            emitMethod = flowCollectorClass.getDeclaredMethod("emit", Object.class, continuationClass);
+            entitlementConstructor = entitlementClass.getDeclaredConstructor(
+                    statusEnumClass, String.class, boolean.class, List.class);
+            log(Log.INFO, TAG, "檢測到 Whoscall 8.38 版本混淆特徵 (mh4$a / z63 / ztf / meb)");
+        }
+
+        if (emitMethod == null || statusEnumClass == null || entitlementConstructor == null) {
+            throw new ClassNotFoundException("無法找到相容的 isPremium 混淆類別名稱");
+        }
+
         emitMethod.setAccessible(true);
+        entitlementConstructor.setAccessible(true);
 
         Field premiumStatusField = statusEnumClass.getDeclaredField(FIELD_STATUS_PREMIUM);
         premiumStatusField.setAccessible(true);
         Object premiumStatusValue = premiumStatusField.get(null);
 
-        Constructor<?> entitlementConstructor = entitlementClass.getDeclaredConstructor(
-                statusEnumClass, String.class, boolean.class, List.class);
-        entitlementConstructor.setAccessible(true);
+        final Constructor<?> finalConstructor = entitlementConstructor;
+        final Object finalPremiumStatusValue = premiumStatusValue;
 
         hook(emitMethod).intercept(chain -> {
             Object[] args = chain.getArgs().toArray();
@@ -146,8 +140,8 @@ public final class WhoscallPremiumHookModule extends XposedModule {
                 List<?> originalEntitlements = (List<?>) args[0];
                 List<Object> forcedEntitlements = new ArrayList<>(originalEntitlements);
 
-                Object fakePremiumEntitlement = entitlementConstructor.newInstance(
-                        premiumStatusValue, null, true, new ArrayList<Object>());
+                Object fakePremiumEntitlement = finalConstructor.newInstance(
+                        finalPremiumStatusValue, null, true, new ArrayList<Object>());
                 forcedEntitlements.add(fakePremiumEntitlement);
 
                 log(Log.INFO, TAG, "isPremium emit() 被攔截，原清單筆數=" + originalEntitlements.size() + " -> 修改後筆數=" + forcedEntitlements.size());
@@ -164,20 +158,40 @@ public final class WhoscallPremiumHookModule extends XposedModule {
      * 當傳入的 featureType 是 OFFLINE_DB（自動更新號碼資料庫）時，直接強制回傳 true。
      */
     private void hookAutoUpdateDatabaseFeature(ClassLoader classLoader) throws Throwable {
-        Class<?> featureCheckerClass = findFirstClass(CLASS_FEATURE_AVAILABILITY_CHECKER_CANDIDATES, classLoader);
-        Class<?> featureTypeClass = findFirstClass(CLASS_FEATURE_TYPE_CANDIDATES, classLoader);
+        Method isFeatureAvailableMethod = null;
+        Class<?> featureTypeClass = null;
 
-        Method isFeatureAvailableMethod = featureCheckerClass.getDeclaredMethod("a", featureTypeClass);
+        // 嘗試 8.41+ 混淆組合
+        try {
+            Class<?> featureCheckerClass = findClass("qpd", classLoader);
+            featureTypeClass = findClass("q16", classLoader);
+            isFeatureAvailableMethod = featureCheckerClass.getDeclaredMethod("a", featureTypeClass);
+            log(Log.INFO, TAG, "檢測到 Whoscall 8.41+ 版本 Feature 判斷類別 (qpd / q16)");
+        } catch (Throwable ignored) {
+        }
+
+        // 若 8.41+ 失敗，嘗試 8.38 混淆組合
+        if (isFeatureAvailableMethod == null) {
+            Class<?> featureCheckerClass = findClass("hrd", classLoader);
+            featureTypeClass = findClass("v26", classLoader);
+            isFeatureAvailableMethod = featureCheckerClass.getDeclaredMethod("a", featureTypeClass);
+            log(Log.INFO, TAG, "檢測到 Whoscall 8.38 版本 Feature 判斷類別 (hrd / v26)");
+        }
+
+        if (isFeatureAvailableMethod == null || featureTypeClass == null) {
+            throw new ClassNotFoundException("無法找到相容的 FeatureAvailabilityChecker 混淆類別名稱");
+        }
+
         isFeatureAvailableMethod.setAccessible(true);
 
         Field offlineDbFeatureField = featureTypeClass.getDeclaredField(FIELD_FEATURE_TYPE_OFFLINE_DB);
         offlineDbFeatureField.setAccessible(true);
-        Object offlineDbFeatureValue = offlineDbFeatureField.get(null);
+        Object finalOfflineDbFeatureValue = offlineDbFeatureField.get(null);
 
         hook(isFeatureAvailableMethod).intercept(chain -> {
             Object[] args = chain.getArgs().toArray();
 
-            if (args.length > 0 && args[0] == offlineDbFeatureValue) {
+            if (args.length > 0 && args[0] == finalOfflineDbFeatureValue) {
                 return Boolean.TRUE;
             }
 
