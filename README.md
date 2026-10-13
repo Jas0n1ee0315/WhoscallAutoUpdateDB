@@ -59,26 +59,27 @@ lsposed-whoscall-premium/
 5. 強制停止並重新開啟 Whoscall App。進入任一訂閱限定功能頁面確認是否已顯示為「已訂閱」狀態。
 6. 可用 `adb logcat -s WhoscallPremiumHook` 查看模組是否成功套用 Hook（成功/失敗都會記 log）。
 
-## APK 改版後如何維護（混淆類別名稱會變）
+## 版本相容性與混淆類別對照
 
-`mh4` / `oh4` / `co5` / `meb` / `ztf` / `z63` / `hrd` / `xj1` / `v26` 都是 ProGuard/R8 混淆後的
-類別名稱，只保證對應「這次反編譯出來的這一版 Whoscall APK」。Whoscall 改版重新打包後，這些名稱
-極可能改變，屆時：
+本模組已內建多版本候選清單，可同時相容 **Whoscall 8.38** 與 **Whoscall 8.41+**：
+
+| 功能 / 類別角色 | 8.38 混淆名稱 | 8.41 混淆名稱 |
+| :--- | :--- | :--- |
+| **isPremium FlowCollector** | `mh4$a` | `jg4$a` |
+| **Continuation 介面** | `z63` | `x43` |
+| **UserEntitlement 資料類別** | `ztf` | `dtf` |
+| **EntitlementStatus enum** | `meb` | `fbb` (`c` = `PREMIUM`) |
+| **FeatureAvailabilityChecker** | `hrd` | `qpd` (`a()` 方法) |
+| **FeatureType enum** | `v26` | `q16` (`b` = `OFFLINE_DB`) |
+
+## APK 日後改版維護指南（若版本再更新）
+
+ProGuard/R8 混淆名稱在每次 Whoscall 大改版重新打包後皆可能改變，若日後 Hook 失效：
 
 1. 用 jadx（或同等工具）反編譯新版 APK。
-2. Hook 1（isPremium）：搜尋 `EntitlementStatus`、`isPremium`、`DefaultEntitlementRepository`
-   等關鍵字，找到目前對應的混淆類別。可比對邏輯特徵：一個 enum 有 `FREE / AD_FREE / PREMIUM /
-   AD_SUPPORTED / PREMIUM_FAMILY / PREMIUM_SHARE / UNKNOWN` 七個值，就是 `meb`
-   （EntitlementStatus）的新對應類別；其建構子為 `(status, String, boolean, List)` 的資料類別
-   就是 `ztf`（UserEntitlement）的新對應類別。
-3. Hook 2（自動更新號碼資料庫）：搜尋 `"cached_enabled_feature_keys"`、`"offlinedb"` 這兩個字串常
-   數，會找到 `hrd.java`（或改版後的新類別）。可比對邏輯特徵：一個 enum 有 `ADS / OFFLINE_DB /
-   SPAM_HAMMER / SMS_URL_AUTO_SCAN / CALL_LOG / CALLER_ID / SMS_AUTO_FILTER / FAMILY_SHARING /
-   UNKNOWN` 九個值，就是 `v26`（FeatureType）的新對應類別，其中 `OFFLINE_DB` 的順序（ordinal）
-   對應的欄位名稱就是要更新的 `FIELD_FEATURE_TYPE_OFFLINE_DB`。
-4. 更新 `WhoscallPremiumHookModule.java` 最上方「混淆類別名稱設定區」的 `CLASS_*` / `FIELD_*` 常數
-   （`findClass()` 會自動嘗試加/去 `defpackage.` 前綴，所以常數本身可以只填類別簡名）。
-5. 重新 Build APK 並安裝覆蓋。
+2. Hook 1（isPremium）：搜尋 `EntitlementStatus`、`isPremium`、`DefaultEntitlementRepository` 等關鍵字，比對出新的 FlowCollector 與 EntitlementStatus enum。
+3. Hook 2（自動更新號碼資料庫）：搜尋 `"cached_enabled_feature_keys"`、`"offlinedb"` 字串常數，比對出新的 FeatureAvailabilityChecker 類別與 FeatureType enum。
+4. 在 `WhoscallPremiumHookModule.java` 最上方的 `CLASS_*_CANDIDATES` 陣列中新增新版類別名稱即可。
 
 ## 安全與使用範圍提醒
 
