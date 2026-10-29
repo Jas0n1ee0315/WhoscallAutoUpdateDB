@@ -15,7 +15,7 @@ import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam;
 /**
  * Whoscall QA 訂閱狀態模擬與功能開通模組。
  *
- * 支援版本：Whoscall 8.42+ / 8.41 / 8.38
+ * 支援版本：Whoscall 8.43+ / 8.42 / 8.41 / 8.38
  *
  * 背景與原理：
  * 1. isPremium 強制訂閱 Hook：
@@ -92,24 +92,40 @@ public final class WhoscallPremiumHookModule extends XposedModule {
         Class<?> statusEnumClass = null;
         Constructor<?> entitlementConstructor = null;
 
-        // 嘗試 8.42+ 混淆組合 (r38$a / d63 / bvf / efb)
+        // 嘗試 8.43+ 混淆組合 (x58$a / x63 / txf / vgb)
         try {
-            Class<?> flowCollectorClass = findClass("r38$a", classLoader);
-            Class<?> continuationClass = findClass("d63", classLoader);
-            statusEnumClass = findClass("efb", classLoader);
-            Class<?> entitlementClass = findClass("bvf", classLoader);
+            Class<?> flowCollectorClass = findClass("x58$a", classLoader);
+            Class<?> continuationClass = findClass("x63", classLoader);
+            statusEnumClass = findClass("vgb", classLoader);
+            Class<?> entitlementClass = findClass("txf", classLoader);
 
             emitMethod = flowCollectorClass.getDeclaredMethod("emit", Object.class, continuationClass);
             entitlementConstructor = entitlementClass.getDeclaredConstructor(
                     statusEnumClass, String.class, boolean.class, List.class);
-            log(Log.INFO, TAG, "檢測到 Whoscall 8.42+ 版本混淆特徵 (r38$a / d63 / bvf / efb)");
+            log(Log.INFO, TAG, "檢測到 Whoscall 8.43+ 版本混淆特徵 (x58$a / x63 / txf / vgb)");
         } catch (Throwable ignored) {
         }
 
-        // 嘗試 8.42+ 備用混淆組合 (ek4$a / d63 / bvf / efb)
+        // 嘗試 8.43+ 備用混淆組合 (hj4$a / x63 / txf / vgb)
         if (emitMethod == null) {
             try {
-                Class<?> flowCollectorClass = findClass("ek4$a", classLoader);
+                Class<?> flowCollectorClass = findClass("hj4$a", classLoader);
+                Class<?> continuationClass = findClass("x63", classLoader);
+                statusEnumClass = findClass("vgb", classLoader);
+                Class<?> entitlementClass = findClass("txf", classLoader);
+
+                emitMethod = flowCollectorClass.getDeclaredMethod("emit", Object.class, continuationClass);
+                entitlementConstructor = entitlementClass.getDeclaredConstructor(
+                        statusEnumClass, String.class, boolean.class, List.class);
+                log(Log.INFO, TAG, "檢測到 Whoscall 8.43+ 備用版本混淆特徵 (hj4$a / x63 / txf / vgb)");
+            } catch (Throwable ignored) {
+            }
+        }
+
+        // 嘗試 8.42 混淆組合 (r38$a / d63 / bvf / efb)
+        if (emitMethod == null) {
+            try {
+                Class<?> flowCollectorClass = findClass("r38$a", classLoader);
                 Class<?> continuationClass = findClass("d63", classLoader);
                 statusEnumClass = findClass("efb", classLoader);
                 Class<?> entitlementClass = findClass("bvf", classLoader);
@@ -117,7 +133,7 @@ public final class WhoscallPremiumHookModule extends XposedModule {
                 emitMethod = flowCollectorClass.getDeclaredMethod("emit", Object.class, continuationClass);
                 entitlementConstructor = entitlementClass.getDeclaredConstructor(
                         statusEnumClass, String.class, boolean.class, List.class);
-                log(Log.INFO, TAG, "檢測到 Whoscall 8.42+ 備用版本混淆特徵 (ek4$a / d63 / bvf / efb)");
+                log(Log.INFO, TAG, "檢測到 Whoscall 8.42 版本混淆特徵 (r38$a / d63 / bvf / efb)");
             } catch (Throwable ignored) {
             }
         }
@@ -149,6 +165,10 @@ public final class WhoscallPremiumHookModule extends XposedModule {
             entitlementConstructor = entitlementClass.getDeclaredConstructor(
                     statusEnumClass, String.class, boolean.class, List.class);
             log(Log.INFO, TAG, "檢測到 Whoscall 8.38 版本混淆特徵 (mh4$a / z63 / ztf / meb)");
+        }
+
+        if (emitMethod == null || statusEnumClass == null || entitlementConstructor == null) {
+            throw new ClassNotFoundException("無法找到相容的 isPremium 混淆類別名稱");
         }
 
         emitMethod.setAccessible(true);
@@ -189,13 +209,24 @@ public final class WhoscallPremiumHookModule extends XposedModule {
         Method isFeatureAvailableMethod = null;
         Class<?> featureTypeClass = null;
 
-        // 嘗試 8.42+ 混淆組合 (std / k66)
+        // 嘗試 8.43+ 混淆組合 (sud / f66)
         try {
-            Class<?> featureCheckerClass = findClass("std", classLoader);
-            featureTypeClass = findClass("k66", classLoader);
+            Class<?> featureCheckerClass = findClass("sud", classLoader);
+            featureTypeClass = findClass("f66", classLoader);
             isFeatureAvailableMethod = featureCheckerClass.getDeclaredMethod("a", featureTypeClass);
-            log(Log.INFO, TAG, "檢測到 Whoscall 8.42+ 版本 Feature 判斷類別 (std / k66)");
+            log(Log.INFO, TAG, "檢測到 Whoscall 8.43+ 版本 Feature 判斷類別 (sud / f66)");
         } catch (Throwable ignored) {
+        }
+
+        // 嘗試 8.42 混淆組合 (std / k66)
+        if (isFeatureAvailableMethod == null) {
+            try {
+                Class<?> featureCheckerClass = findClass("std", classLoader);
+                featureTypeClass = findClass("k66", classLoader);
+                isFeatureAvailableMethod = featureCheckerClass.getDeclaredMethod("a", featureTypeClass);
+                log(Log.INFO, TAG, "檢測到 Whoscall 8.42 版本 Feature 判斷類別 (std / k66)");
+            } catch (Throwable ignored) {
+            }
         }
 
         // 嘗試 8.41 混淆組合 (qpd / q16)
@@ -215,6 +246,10 @@ public final class WhoscallPremiumHookModule extends XposedModule {
             featureTypeClass = findClass("v26", classLoader);
             isFeatureAvailableMethod = featureCheckerClass.getDeclaredMethod("a", featureTypeClass);
             log(Log.INFO, TAG, "檢測到 Whoscall 8.38 版本 Feature 判斷類別 (hrd / v26)");
+        }
+
+        if (isFeatureAvailableMethod == null || featureTypeClass == null) {
+            throw new ClassNotFoundException("無法找到相容的 FeatureAvailabilityChecker 混淆類別名稱");
         }
 
         isFeatureAvailableMethod.setAccessible(true);

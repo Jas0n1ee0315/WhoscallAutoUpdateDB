@@ -61,16 +61,16 @@ lsposed-whoscall-premium/
 
 ## 版本相容性與混淆類別對照
 
-本模組已內建多版本向下相容機制，可同時相容 **Whoscall 8.38**、**8.41** 與 **8.42+**：
+本模組已內建多版本向下相容機制，可同時相容 **Whoscall 8.38**、**8.41**、**8.42** 與 **8.43+**：
 
-| 功能 / 類別角色 | 8.38 混淆名稱 | 8.41 混淆名稱 | 8.42+ 混淆名稱 |
-| :--- | :--- | :--- | :--- |
-| **isPremium FlowCollector** | `mh4$a` | `jg4$a` | **`r38$a`** (或 `ek4$a`) |
-| **Continuation 介面** | `z63` | `x43` | **`d63`** |
-| **UserEntitlement 資料類別** | `ztf` | `dtf` | **`bvf`** |
-| **EntitlementStatus enum** | `meb` | `fbb` | **`efb`** (`c` = `PREMIUM`) |
-| **FeatureAvailabilityChecker** | `hrd` | `qpd` | **`std`** (`a()` 方法) |
-| **FeatureType enum** | `v26` | `q16` | **`k66`** (`b` = `OFFLINE_DB`) |
+| 功能 / 類別角色 | 8.38 混淆名稱 | 8.41 混淆名稱 | 8.42 混淆名稱 | 8.43+ 混淆名稱 |
+| :--- | :--- | :--- | :--- | :--- |
+| **isPremium FlowCollector** | `mh4$a` | `jg4$a` | `r38$a` (或 `ek4$a`) | **`x58$a`** (或 `hj4$a`) |
+| **Continuation 介面** | `z63` | `x43` | `d63` | **`x63`** |
+| **UserEntitlement 資料類別** | `ztf` | `dtf` | `bvf` | **`txf`** |
+| **EntitlementStatus enum** | `meb` | `fbb` | `efb` | **`vgb`** (`c` = `PREMIUM`) |
+| **FeatureAvailabilityChecker** | `hrd` | `qpd` | `std` | **`sud`** (`a()` 方法) |
+| **FeatureType enum** | `v26` | `q16` | `k66` | **`f66`** (`b` = `OFFLINE_DB`) |
 
 ## APK 日後改版維護指南（若版本再更新）
 
